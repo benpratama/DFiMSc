@@ -1,0 +1,28 @@
+{
+  "control_plane": {
+    "ip_code": ,
+    "os": "ubuntu",
+    "name": ,
+    "host_name": ,
+    "domain": ,
+    "ipv4_address": ,
+    "ipv4_netmask": ,
+    "ipv4_gateway": ,
+    "dns_server_list": [
+
+    ]
+  },
+  "windows_worker_1": {
+    "ip_code": ,
+    "os":"windows",
+    "name": ,
+    "computer_name": ,
+    "admin_password": ,
+    "ipv4_address": ,
+    "ipv4_netmask": ,
+    "ipv4_gateway": ,
+    "dns_server_list": [
+
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "control_plane_211": {
+    "ip_code": 211,
+    "os": "ubuntu",
+    "role": "ControlPlane",
+    "name": "211-ubuntu-controlPlane",
+    "host_name": "controlplane",
+    "domain": "terraform-nodejs",
+    "ipv4_address": "192.168.3.211",
+    "ipv4_netmask": "24",
+    "ipv4_gateway": "192.168.3.254",
+    "dns_server_list": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ]
+  }
+}

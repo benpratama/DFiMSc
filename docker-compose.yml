@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongodb/mongodb-community-server:7.0.17-ubi9
+    ports:
+      - "27019:27017"
+    volumes:
+      - C:\mongodb_Docker:/data/db # change path
+  backend:
+    image: dfimsc:gui_backend
+    environment:
+      MONGO_URI: mongodb://mongo:27017/ClusterMonitoring
+    ports:
+      - "8003:8003"
+    depends_on:
+    - mongo
+  frontend:
+    image: dfimsc:gui
+    ports:
+      - "3000:3000"
+    depends_on:
+    - mongo
+    - backend

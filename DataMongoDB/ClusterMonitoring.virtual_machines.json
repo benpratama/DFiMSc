@@ -1,0 +1,95 @@
+[{
+  "_id": {
+    "$oid": "67eb9955a99f5892f9143c37"
+  },
+  "title": "Virtual_Machine_1",
+  "os": "ubuntu",
+  "name": "controlplane",
+  "ipv4_address": "192.168.3.211",
+  "ip_code": 211,
+  "ipv4_netmask": 24,
+  "ipv4_gateway": "192.168.3.254",
+  "dns_server_list": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "host_name": "controlplane",
+  "domain": "terraform-nodejs",
+  "role": "ControlPlane"
+},
+{
+  "_id": {
+    "$oid": "67eb9955a99f5892f9143c3b"
+  },
+  "title": "Virtual_Machine_2",
+  "os": "windows",
+  "name": "windows212",
+  "ipv4_address": "192.168.3.212",
+  "ip_code": 212,
+  "ipv4_netmask": 24,
+  "ipv4_gateway": "192.168.3.254",
+  "dns_server_list": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "computer_name": "windows212",
+  "admin_password": "@ut0Lab95619",
+  "role": "WorkerNode"
+},
+{
+  "_id": {
+    "$oid": "67eb9c07a99f5892f9143cb5"
+  },
+  "title": "Virtual_Machine_3",
+  "os": "windows",
+  "name": "windows213",
+  "ipv4_address": "192.168.3.213",
+  "ip_code": 213,
+  "ipv4_netmask": 24,
+  "ipv4_gateway": "192.168.3.254",
+  "dns_server_list": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "computer_name": "windows213",
+  "admin_password": "@ut0Lab95619",
+  "role": "WorkerNode"
+},
+{
+  "_id": {
+    "$oid": "67eb9c07a99f5892f9143cb9"
+  },
+  "title": "Virtual_Machine_4",
+  "os": "windows",
+  "name": "windows214",
+  "ipv4_address": "192.168.3.214",
+  "ip_code": 214,
+  "ipv4_netmask": 24,
+  "ipv4_gateway": "192.168.3.254",
+  "dns_server_list": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "computer_name": "windows214",
+  "admin_password": "@ut0Lab95619",
+  "role": "WorkerNode"
+},
+{
+  "_id": {
+    "$oid": "67ebfbf797244b6ce3db4397"
+  },
+  "title": "Virtual_Machine_5",
+  "os": "ubuntu",
+  "name": "testvm",
+  "ipv4_address": "192.168.3.215",
+  "ip_code": 215,
+  "ipv4_netmask": 24,
+  "ipv4_gateway": "192.168.3.254",
+  "dns_server_list": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "host_name": "testvm",
+  "domain": "terraform-nodejs",
+  "role": null
+}]

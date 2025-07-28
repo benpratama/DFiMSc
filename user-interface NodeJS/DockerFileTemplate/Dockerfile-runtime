@@ -1,0 +1,38 @@
+#escape=`
+
+#escape=`
+# building stage
+FROM mcr.microsoft.com/windows/servercore:1809
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Install .NET
+COPY dependency/dotnet.zip dotnet.zip
+RUN Expand-Archive dotnet.zip -DestinationPath dotnet; `
+    Remove-Item -Force dotnet.zip
+RUN Move-Item -Path dotnet -Destination "C:/Program Files/dotnet"
+
+WORKDIR C:/dependency
+COPY dependency/env.ps1 C:/dependency/env.ps1
+
+# @CUSTOM TEXT AREA
+# @CUSTOM TEXT AREA
+
+USER ContainerAdministrator
+RUN setx /M PATH $($Env:PATH + ';C:\Program Files\dotnet')
+USER ContainerUser
+
+WORKDIR /app
+COPY release/app /app
+
+ENV ASPNETCORE_URLS=http://+:80 `
+    DOTNET_RUNNING_IN_CONTAINER=true `
+    DOTNET_USE_POLLING_FILE_WATCHER=true `
+    NUGET_XMLDOC_MODE=skip `
+    DB2LANG=en_US
+
+# @CUSTOM PORT
+# @CUSTOM PORT
+
+# @CUSTOM END
+# @CUSTOM END

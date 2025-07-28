@@ -1,0 +1,99 @@
+image:
+    repository: @image/repository
+    pullPolicy: IfNotPresent
+    tag:
+      @image/tag
+imagePullSecrets:
+  - name: benpratama
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: targetMemoryUtilizationPercentage
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type:
+    @service/type
+  port:
+    @service/port
+  ip:
+    @service/ip
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: edge01.imrc.be
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+  
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+
+autoscaling:
+  enabled: false
+  minReplicas:
+    @autoscaling/minReplicas
+  maxReplicas:
+    @autoscaling/maxReplicas
+  targetCPUUtilizationPercentage: 80
+replicaCount:
+    @component
+nodeSelector: {}
+
+tolerations: []
+
+
+affinity: {}
+volume:
+  hostPath:
+    @volume/hostPath
+  node: @volume/node
+odbc:
+  CDB:
+    type: SQLServer
+    name: @odbc/CDB/name
+    uid: @odbc/CDB/uid
+    pwd: @odbc/CDB/pwd
+    ip: @odbc/CDB/ip
+  STDB:
+    type: SQLServer
+    name: @odbc/STDB/name
+    uid: @odbc/STDB/uid
+    pwd: @odbc/STDB/pwd
+    ip: @odbc/STDB/ip
+
