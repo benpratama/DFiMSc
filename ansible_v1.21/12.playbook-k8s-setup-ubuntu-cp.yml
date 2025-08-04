@@ -1,0 +1,246 @@
+# ============
+# 1. CONFIGURING KUBELET CGROUP DRIVER
+# 2. INITIALIZE K8S CLUSTER
+# 3. CHECK
+# 4. INSTALL & CONFIGURE CNI PLUGIN
+# 5. INSTALL calicoctl
+# 6. CONFIGUR STRICT AFFINITY FOR CLUSTERS USING CALICO NETWORKING
+# ============
+
+---
+- name: Setup Kubernetes Cluster control plane
+  hosts: control_plane
+  become: yes
+  vars_files:
+    - secret.yml
+    - variables.yml
+
+  tasks:
+# # 1. CONFIGURING KUBELET CGROUP DRIVER
+    - name: Create kubeadm-config.yaml
+      file:
+        path: /home/{{ user }}/kubeadm-config.yaml
+        state: touch
+        mode: '0755'
+
+    - name: Write content into kubeadm-config.yaml
+      lineinfile:
+        path: /home/{{ user }}/kubeadm-config.yaml
+        state: present
+        create: yes
+        line: |
+          kind: ClusterConfiguration
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kubernetesVersion: v1.28.11
+          networking:
+            serviceSubnet: "10.96.0.0/16"
+            podSubnet: "10.244.0.0/24"
+          ---
+          kind: KubeletConfiguration
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          cgroupDriver: systemd
+    
+    - name: Apply kubeadm-config.yaml
+      shell: kubeadm init --config kubeadm-config.yaml
+      become: yes
+      register: kubeadm_init_output
+    
+    - name: Wait until kubeadm init is finished
+      wait_for:
+        timeout: 60
+    
+    - name: Output kubeadm init output
+      debug:
+        msg: "{{ kubeadm_init_output.stdout_lines }}"
+
+# # # 2. INITIALIZE K8S CLUSTER
+    - name : Copy Kubernetes config file as root
+      shell: mkdir -p $HOME/.kube && sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+    - name: Export kubeconfig location as environment
+      shell: export KUBECONFIG=/etc/kubernetes/admin.conf
+
+    - name: Mkdir .kube directory for user
+      shell: mkdir -p /home/{{ user }}/.kube 
+      become_user: "{{ user }}"
+      
+    - name: Copy Kubernetes config file for user
+      copy: 
+        src: /etc/kubernetes/admin.conf 
+        dest: /home/{{ user }}/.kube/config
+        mode: '0644'        
+        remote_src: true
+      become: true
+      become_user: root
+    
+    # - name: Chown Kubernetes config file for user
+    #   shell: sudo chown $(id -u):$(id -g) $HOME/.kube/config
+    #   become_user: "{{ user }}"
+    
+    - name: Fetch Kubernetes config file from control plane to Ansible controller
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ user }}/.kube/config
+        flat: yes
+      become: true
+      become_user: root
+
+# # 3. CHECK
+    - name: Use kubectl to check nodes
+      shell: kubectl get nodes
+      register: nodes
+
+    - name: Output nodes 
+      debug:
+        msg: "{{ nodes.stdout_lines }}"
+
+    - name: Use kubectl to check all system pods
+      shell: kubectl get pods -n kube-system
+      register: pods
+
+    - name: Output pods
+      debug:
+        msg: "{{ pods.stdout_lines }}"
+
+# 4. INSTALL & CONFIGURE CNI PLUGIN
+    - name: Install the Calico operator
+      shell: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+
+    - name: Download the custom resources to configure Calico
+      shell: curl https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml -O
+    
+    - name: Modify the custom-resources.yaml
+      copy:
+        dest: /home/{{ user }}/custom-resources.yaml
+        content: |
+          # This section includes base Calico installation configuration.
+          # For more information, see: https://docs.tigera.io/calico/latest/reference/installation/api#operator.tigera.io/v1.Installation
+          apiVersion: operator.tigera.io/v1
+          kind: Installation
+          metadata:
+            name: default
+          spec:
+            # Configures Calico networking.
+            calicoNetwork:
+              ipPools:
+              - name: default-ipv4-ippool
+                blockSize: 26
+                cidr: 10.244.0.0/24
+                encapsulation: VXLAN
+                natOutgoing: Enabled
+                nodeSelector: all()
+            serviceCIDRs:
+            - 10.96.0.0/16
+          ---
+          # This section configures the Calico API server.
+          # For more information, see: https://docs.tigera.io/calico/latest/reference/installation/api#operator.tigera.io/v1.APIServer
+          apiVersion: operator.tigera.io/v1
+          kind: APIServer
+          metadata:
+            name: default
+          spec: {}
+        mode: '0755'
+
+    - name: Install the Calico operator
+      shell: kubectl create -f custom-resources.yaml
+
+    - name: Wait until Install the Calico is finished
+      wait_for:
+        timeout: 60
+    
+    - name: Verify Calico installation 
+      shell: kubectl get pods -n calico-system
+      register: calico
+
+    - name: Output calico
+      debug:
+        msg: "{{ calico.stdout_lines }}"
+
+    - name: Use kubectl to check all system pods
+      shell: kubectl get pods -A
+      register: pods
+
+    - name: Output pods
+      debug:
+        msg: "{{ pods.stdout_lines }}"
+
+# 5. INSTALL calicoctl
+    - name: Download calicoctl to /usr/local/bin/
+      get_url:
+        url: "https://github.com/projectcalico/calico/releases/download/v3.28.0/calicoctl-linux-amd64"
+        dest: "/usr/local/bin/calicoctl"
+        mode: '0755'
+    
+    - name: Ensure DATASTORE_TYPE is set in /etc/environment
+      lineinfile:
+        path: /etc/environment
+        line: 'DATASTORE_TYPE=kubernetes'
+        create: yes
+    
+    - name: Ensure KUBECONFIG is set in /etc/environment
+      lineinfile:
+        path: /etc/environment
+        line: 'KUBECONFIG=/root/.kube/config'
+        create: yes
+      
+    - name: Check Calico and calicoctl version
+      shell: calicoctl version
+      register: calicoctl
+
+    - name: Output calicoctl
+      debug:
+        msg: "{{ calicoctl.stdout_lines }}"
+
+    - name: Get all nodes in cluster
+      shell: calicoctl get nodes
+      register: node
+
+    - name: Output calicoctl
+      debug:
+        msg: "{{ node.stdout_lines }}"
+
+# 6. CONFIGUR STRICT AFFINITY FOR CLUSTERS USING CALICO NETWORKING
+    - name: Set strict affinity
+      shell: "kubectl patch ipamconfigurations default --type merge --patch='{\"spec\": {\"strictAffinity\": true}}'"
+
+    - name: Disable BGP
+      shell: "kubectl patch installation default --type=merge -p '{\"spec\": {\"calicoNetwork\": {\"bgp\": \"Disabled\"}}}'"
+
+    - name: Get Kubernetes API Server IP
+      command: kubectl get endpoints kubernetes -o wide
+      register: kubectl_output
+
+    - name: Output calicoctl
+      debug:
+        msg: "{{ kubectl_output.stdout_lines }}"
+    
+    - name: Extract APISERVER_ADDR and APISERVER_PORT
+      set_fact:
+        APISERVER_ADDR: "{{ (kubectl_output.stdout_lines | select('search', 'kubernetes') | list | first | split())[ -2 ] | split(':') | first }}"
+        APISERVER_PORT: "{{ (kubectl_output.stdout_lines | select('search', 'kubernetes') | list | first | split())[ -2 ] | split(':') | last }}"
+    
+    - name:
+      debug:
+        msg:
+          - "APISERVER_ADDR: {{ APISERVER_ADDR }}"
+          - "APISERVER_PORT: {{ APISERVER_PORT }}"
+
+    - name: Generate Kubernetes ConfigMap YAML
+      copy:
+        dest: /home/{{ user }}/kubernetes-configmap.yaml
+        content: |
+          kind: ConfigMap
+          apiVersion: v1
+          metadata:
+            name: kubernetes-services-endpoint
+            namespace: tigera-operator
+          data:
+            KUBERNETES_SERVICE_HOST: "{{ APISERVER_ADDR }}"
+            KUBERNETES_SERVICE_PORT: "{{ APISERVER_PORT }}"
+        mode: '0755'
+    
+    - name: Apply kubernetes-configmap.yaml
+      command: kubectl apply -f /home/{{ user }}/kubernetes-configmap.yaml
+    
+    - name: Enable Calico for Windows on the Tigera operator 
+      shell: "kubectl patch installation default --type merge --patch='{\"spec\": {\"serviceCIDRs\": [\"10.96.0.0/16\"], \"calicoNetwork\": {\"windowsDataplane\": \"HNS\"}}}'"

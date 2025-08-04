@@ -1,0 +1,17 @@
+- name: Ubuntu worker node delete (ubuntu)
+  hosts: control_plane
+  vars_files:
+    - delete_ubuntu.yml
+    - secret.yml
+
+  tasks:
+    - name: Test Connection
+      ping:
+
+    - name: Drain node
+      command: kubectl drain "{{ item }}" --delete-local-data --force --ignore-daemonsets
+      loop: "{{ Delete_node_ubuntu }}"
+
+    - name: Delete node
+      command: kubectl delete node "{{ item }}"
+      loop: "{{ Delete_node_ubuntu }}"

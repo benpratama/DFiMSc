@@ -1,0 +1,130 @@
+---
+- name: Install Docker on Ubuntu 20.04
+  hosts: workers_ubuntu
+  become: true
+  vars_files:
+    - secret.yml
+    - variables.yml
+
+  tasks:
+    - name: Test Connection
+      ping:
+
+    - name: Reboot the machine
+      reboot:
+        reboot_timeout: 600
+      become: true
+      become_user: root
+
+    - name: Wait for the machine to come back online
+      wait_for_connection:
+        timeout: 300
+
+    - name: Install aptitude using apt
+      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: true
+      loop: "{{ required_packages }}"
+
+    - name: Add docker's official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt cache and install docker engine
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: true
+        allow_downgrades: true
+      loop: "{{ docker_engines }}"
+
+    - name: Check docker group is exists
+      group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: "{{ user }}"
+        group: docker
+
+    - name: Create Docker daemon /etc/docker/daemon.json if not exists
+      file:
+        path: /etc/docker/daemon.json
+        state: touch
+        mode: 0644      
+
+    - name: Create Docker systemd dir /etc/systemd/system/docker.service.d
+      file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        mode: 0644
+
+    - name: Empty file content /etc/docker/daemon.json
+      copy:
+        content: ""
+        dest: /etc/docker/daemon.json
+
+    - name: Set Docker to use systemd as control group 
+      lineinfile:
+        path: /etc/docker/daemon.json
+        state: present
+        create: yes
+        line: |
+          {
+            "exec-opts": ["native.cgroupdriver=systemd"],
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "100m"
+            },
+            "storage-driver": "overlay2"
+          }
+
+    - name: Reload systemd
+      become: true
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart docker
+      become: true
+      service:
+        name: docker
+        state: restarted
+    
+    - name: Give administrative right to user Docker
+      become: true
+      lineinfile:
+        path: /etc/sudoers
+        line: "{{ user }} ALL=(ALL) NOPASSWD:ALL"
+        validate: visudo -cf %s
+
+    - name: Use usermod to add user to docker group
+      shell: sudo usermod -aG docker $USER
+
+    - name: Check Docker version
+      command: docker --version
+      register: docker_version
+
+    - name: Print Docker version output
+      debug:
+        var: docker_version.stdout_lines
+
+    - name: Verify if Docker has been successfully installed  
+      become: true
+      command: docker run --rm hello-world
+      register: docker_hello_world
+
+    - name: Print Docker hello world output
+      debug:
+        var: docker_hello_world.stdout_lines
+

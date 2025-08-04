@@ -1,0 +1,174 @@
+---
+- name: Setup Kubernetes Cluster control plane
+  hosts: control_plane
+  become: true
+  vars_files:
+    - variables.yml
+
+  tasks:
+    - name: Reset Kubernetes config file
+      shell: rm -Rf $HOME/.kube/config
+
+    - name: Reset kubeadm just in case
+      shell: kubeadm reset -f
+
+    - name: Reset iptables
+      shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+      become: true
+
+    - name: Disable swap
+      shell: swapoff -a
+
+    - name: Disable swap in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^(.*swap.*)$'
+        replace: '#\1'
+    
+    - name: Initialize Kubernetes Cluster
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16 --service-cidr=10.96.0.0/12
+      register: kubeadm_init_output
+
+    - name: Wait until kubeadm init is finished
+      wait_for:
+        timeout: 60
+    
+    - name: Output kubeadm init output
+      debug:
+        msg: "{{ kubeadm_init_output.stdout_lines }}"
+
+    - name : Copy Kubernetes config file as root
+      shell: mkdir -p $HOME/.kube && sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+    - name: Export kubeconfig location as environment
+      shell: export KUBECONFIG=/etc/kubernetes/admin.conf
+
+    - name: Mkdir .kube directory for user
+      shell: mkdir -p /home/{{ user }}/.kube 
+      become_user: "{{ user }}"
+      
+    - name: Copy Kubernetes config file for user
+      copy: 
+        src: /etc/kubernetes/admin.conf 
+        dest: /home/{{ user }}/.kube/config
+        mode: '0644'        
+        remote_src: true
+      become: true
+      become_user: root
+    
+    - name: Chown Kubernetes config file for user
+      shell: sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      become_user: "{{ user }}"
+    
+    - name: Fetch Kubernetes config file from control plane to Ansible controller
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ user }}/.kube/config
+        flat: yes
+      become: true
+      become_user: root
+  
+    - name: Download Flannel v0.18.1 manifest file
+      shell: wget https://raw.githubusercontent.com/coreos/flannel/v0.18.1/Documentation/kube-flannel.yml -O /home/{{ user }}/kube-flannel.yml
+
+    - name: Modify net-conf.json section in kube-flannel.yml to support Windows node
+      lineinfile:
+        path: /home/{{ user }}/kube-flannel.yml
+        regexp: '^(.*vxlan.*)$'
+        line: "        \"Type\": \"vxlan\", \n        \"VNI\" : 4096, \n        \"Port\": 4789"
+
+    - name: Apply Flannel manifest file
+      shell: kubectl apply -f /home/{{ user }}/kube-flannel.yml
+
+    - name: Wait until all kube-system pods are running
+      shell: kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=60s
+
+    - name: Download Windows kube-proxy manifest file
+      shell: wget https://github.com/kubernetes-sigs/sig-windows-tools/releases/latest/download/kube-proxy.yml -O /home/{{ user }}/kube-proxy.yml
+
+    - name: Modify kube-proxy manifest file to support Kubernetes version
+      shell: sed -i 's/VERSION/v1.21.14/g' /home/{{ user }}/kube-proxy.yml 
+
+    - name: Apply Windows kube-proxy manifest file
+      shell: kubectl apply -f /home/{{ user }}/kube-proxy.yml
+
+    - name: Download Windows Flannel overlay manifest file
+      shell: wget https://github.com/kubernetes-sigs/sig-windows-tools/releases/latest/download/flannel-overlay.yml  -O /home/{{ user }}/flannel-overlay.yml
+    
+    - name: Apply Windows Flannel overlay manifest file
+      shell: kubectl apply -f /home/{{ user }}/flannel-overlay.yml
+      
+    - name: Wait until all kube-system pods are running
+      shell: kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=60s
+
+    - name: Create Kubernetes join token
+      shell: kubeadm token create --print-join-command
+      register: join_command
+    
+    - name: Output Kubernetes join command
+      debug:
+        msg: "{{ join_command.stdout_lines[0] }}"
+
+    - name: Create Kubernetes join token for Windows node
+      shell: kubeadm token create --print-join-command --ttl 0
+      register: join_token
+
+    - name: Output Kubernetes join command for Windows node
+      debug:
+        msg: "{{ join_token.stdout_lines[0] }}"
+    
+    - name: Save join command in a file
+      copy:
+        content: "{{ join_token.stdout_lines[0] }}"
+        dest: /home/{{ user }}/join-command-windows.ps1
+        mode: '0644'
+      become: true
+      become_user: root
+
+    - name: Fetch join command from control plane to Ansible controller
+      fetch:
+        src: /home/{{ user }}/join-command-windows.ps1
+        dest: /home/{{ user }}/join-command-windows.ps1
+        flat: yes
+      become: true
+      become_user: root
+
+    - name: Save join command in a file (ubuntu)
+      copy:
+        content: "{{ join_token.stdout_lines[0] }}"
+        dest: /home/{{ user }}/join-cluster-ubuntu.sh
+        mode: '0644'
+      become: true
+      become_user: root
+
+    - name: Fetch join command from control plane to Ansible controller (ubuntu)
+      fetch:
+        src: /home/{{ user }}/join-cluster-ubuntu.sh
+        dest: /home/{{ user }}/join-cluster-ubuntu.sh
+        flat: yes
+      become: true
+      become_user: root
+
+    - name: Use kubectl to check nodes
+      shell: kubectl get nodes
+      register: nodes
+
+    - name: Output nodes 
+      debug:
+        msg: "{{ nodes.stdout_lines }}"
+
+    - name: Use kubectl to check all system pods
+      shell: kubectl get pods -n kube-system
+      register: pods
+
+    - name: Output pods
+      debug:
+        msg: "{{ pods.stdout_lines }}"
+
+    - name: Remove the taints on the control plane
+      shell: kubectl taint nodes --all node-role.kubernetes.io/master:NoSchedule-
+      register: remove_taints
+
+    - name: Remove_taints
+      debug:
+        msg: "{{ remove_taints.stdout_lines }}"

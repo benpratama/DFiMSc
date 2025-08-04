@@ -1,0 +1,24 @@
+# Control plane (Ubuntu 20.04)
+[control_plane]
+192.168.119.110
+
+[control_plane:vars]
+ansible_user=administrator 
+ansible_password=@ut0Lab95619
+
+[workers_ubuntu]
+192.168.119.111
+
+[workers_ubuntu:vars]
+ansible_user=administrator 
+ansible_password=@ut0Lab95619
+
+# Worker nodes (Windows Server 2019)
+[workers_win]
+192.168.119.115
+
+[workers_win:vars]
+ansible_user=administrator 
+ansible_password=@ut0Lab95619 
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore

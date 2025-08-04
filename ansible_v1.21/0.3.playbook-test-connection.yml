@@ -1,0 +1,9 @@
+---
+- name: Test connection for Windows Server machines
+  hosts: workers_win
+  vars_files:
+    - secret.yml
+
+  tasks:    
+    - name: Test Connection
+      win_ping:

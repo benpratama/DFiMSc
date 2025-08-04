@@ -1,0 +1,182 @@
+# ============
+# 1. INSTALL CONTAINERD
+# 2. INSTALL RUNC
+# 3. INSTALL CNI
+# 4. INTERACTING WITH CONTAINERD
+# 5. GENERATE CONTAINERD CONFIG
+# 6. SET CONTROL GROUP
+# ============
+---
+- name: Install Docker on Ubuntu 20.04
+  hosts: control_plane
+  become: yes
+  vars_files:
+    - secret.yml
+    - variables_containerd.yml
+
+  tasks:
+    - name: Test Connection
+      ping:
+
+#     - name: Install aptitude using apt
+#       apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+#     - name: Install required packages
+#       apt:
+#         name: "{{ item }}"
+#         state: latest
+#         update_cache: true
+#       loop: "{{ required_packages }}"
+
+# # 1. INSTALL CONTAINERD
+#     - name: Download Containerd
+#       get_url:
+#         url: https://github.com/containerd/containerd/releases/download/v{{ ubt_continerd_version }}/containerd-{{ ubt_continerd_version }}-linux-amd64.tar.gz
+#         dest: /home/{{ user }}/containerd-{{ ubt_continerd_version }}-linux-amd64.tar.gz
+#         mode: '0755'
+    
+#     - name: Extract Containerd
+#       ansible.builtin.unarchive:
+#         src: /home/{{ user }}/containerd-{{ ubt_continerd_version }}-linux-amd64.tar.gz
+#         dest: /usr/local
+#         remote_src: yes
+    
+#     - name: Download Containerd service
+#       get_url:
+#         url : https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+#         dest: /home/{{ user }}/containerd.service
+#         mode: '0755'
+    
+#     - name: Create directory /usr/local/lib/systemd/system
+#       ansible.builtin.file:
+#         path: /usr/local/lib/systemd/system
+#         state: directory
+#         mode: '0755'
+    
+#     - name: Copy containerd.service to /usr/local/lib/systemd/system
+#       ansible.builtin.copy:
+#         src: /home/{{ user }}/containerd.service
+#         dest: /usr/local/lib/systemd/system/containerd.service
+#         remote_src: yes
+#         mode: '0755'
+
+# #     - name: Change ownership of containerd.service
+# #       ansible.builtin.shell: "sudo chown $(id -u):$(id -g) /usr/local/lib/systemd/system/containerd.service"
+
+#     - name: Reload systemd daemon
+#       ansible.builtin.shell: "sudo systemctl daemon-reload"
+
+#     - name: Reload systemd daemon2
+#       ansible.builtin.systemd:
+#         name: containerd
+#         enabled: yes
+#         state: started
+#         daemon_reload: yes
+
+# # 2. INSTALL RUNC
+#     - name: Download runc
+#       get_url:
+#         url: https://github.com/opencontainers/runc/releases/download/v{{ ubt_runc_version }}/runc.amd64
+#         dest: /home/{{ user }}/runc.amd64
+#         mode: '0755'
+    
+#     - name: Install runc and make directory
+#       shell: sudo install -m 755 /home/{{ user }}/runc.amd64 /usr/local/sbin/runc
+
+# # 3. INSTALL CNI
+#     - name: Download CNI
+#       get_url:
+#         url: https://github.com/containernetworking/plugins/releases/download/v{{ ubt_CNI_version }}/cni-plugins-linux-amd64-v{{ ubt_CNI_version }}.tgz
+#         dest: /home/{{ user }}/cni-plugins-linux-amd64-v{{ ubt_CNI_version }}.tgz
+#         mode: '0755'
+
+#     - name: Create directory /opt/cni/bin
+#       ansible.builtin.file:
+#         path: /opt/cni/bin
+#         state: directory
+#         mode: '0755'
+
+#     - name: Extract CNI
+#       ansible.builtin.unarchive:
+#         src: /home/{{ user }}/cni-plugins-linux-amd64-v{{ ubt_CNI_version }}.tgz
+#         dest: /opt/cni/bin
+#         remote_src: yes
+
+# # 4. INTERACTING WITH CONTAINERD
+# # ------ CHECK -------
+#     - name: Containerd installation and check its version
+#       command: sudo ctr version
+#       register: containerd_version
+
+#     - name: Containerd version
+#       debug:
+#         msg: "{{ containerd_version.stdout }}"
+
+#     - name: Check available Docker images
+#       command: sudo ctr image ls
+#       register: Docker_images
+    
+#     - name: Docker images
+#       debug:
+#         msg: "{{ Docker_images.stdout }}"
+
+#     - name: Check running containers
+#       command: runc list
+#       register: runc_cotnainers
+    
+#     - name: Running containers
+#       debug:
+#         msg: "{{ runc_cotnainers.stdout }}"
+# # ------ CHECK -------
+
+# # 5. GENERATE CONTAINERD CONFIG
+#     - name: Default configuration of containerd
+#       command: containerd config default
+
+#     - name: Ensure that containerd is installed and accessible
+#       command: which containerd
+#       register: containerd_cotnainers
+
+#     - name: Ensure that containerd is installed and accessible result
+#       debug:
+#         msg: "{{ containerd_cotnainers.stdout }}"    
+
+#     - name: Create directory /etc/containerd
+#       ansible.builtin.file:
+#         path: /etc/containerd
+#         state: directory
+#         mode: '0755'
+    
+#     - name: Generate default containerd config and save to /etc/containerd/config.toml
+#       shell: "containerd config default | tee /etc/containerd/config.toml"
+
+#     # - name: Check containerd config.toml
+#     #   shell: cat /etc/containerd/config.toml
+#     #   register: containerd_config
+    
+#     # - name: Result containerd config.toml
+#     #   debug:
+#     #     msg: "{{ containerd_config.stdout }}"
+
+# # 6. SET CONTROL GROUP
+#     - name: Modify SystemdCgroup=false to true
+#       command: sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
+
+#     - name: Restart containerd
+#       command: sudo systemctl restart containerd
+
+#     # - name: Check containerd config.toml
+#     #   shell: cat /etc/containerd/config.toml
+#     #   register: containerd_config
+    
+#     # - name: Result containerd config.toml
+#     #   debug:
+#     #     msg: "{{ containerd_config.stdout }}"
+
+    - name: containerd Status
+      command: sudo systemctl status containerd
+      register: containerd_status
+
+    - name: Result containerd config.toml
+      debug:
+        msg: "{{ containerd_status.stdout }}"

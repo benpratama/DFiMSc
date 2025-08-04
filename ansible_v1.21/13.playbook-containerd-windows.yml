@@ -1,0 +1,38 @@
+---
+- name: Install Containerd on windows
+  hosts: workers_win
+  vars_files:
+    - variables_containerd.yml
+  
+  tasks:
+
+    - name: Set PowerShell execution policy to RemoteSigned
+      win_shell: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force -Scope Process
+
+    - name: Download containerd installation script
+      win_shell: Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/microsoft/Windows-Containers/Main/helpful_tools/Install-ContainerdRuntime/install-containerd-runtime.ps1" -o install-containerd-runtime.ps1
+
+    - name: Install containerd
+      win_shell: |
+        powershell.exe -ExecutionPolicy Bypass -File C:\Users\Administrator\install-containerd-runtime.ps1 -ContainerDVersion 1.7.18 -Force
+      register: containerd
+      async: 600
+      poll: 0 
+    
+    - name: Reboot Windows after installing containerd
+      win_reboot:
+        reboot_timeout: 900 
+    
+    - name: Wait for the machine to reconnect
+      wait_for_connection:
+        delay: 10
+        timeout: 600
+    
+    - name: Install containerd
+      win_shell: "C:\\Users\\Administrator\\install-containerd-runtime.ps1 -ContainerDVersion 1.7.18"
+      register: containerd
+    
+    - name: containerd
+      debug:
+        msg: "{{ containerd.stdout_lines }}"
+    

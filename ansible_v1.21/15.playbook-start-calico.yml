@@ -1,0 +1,19 @@
+---
+- name: Install K8s in Windows Server 2019
+  hosts: workers_win
+  vars_files:
+    - variables_containerd.yml
+
+  tasks:
+
+    - name: Run start-calico.ps1
+      win_shell: "c:\\calicowindows\\start-calico.ps1"
+      register: calico_start
+    
+    - name: Wait until containerd is finished
+      win_wait_for:
+        timeout: 60
+
+    - name: calico and k8s result
+      debug:
+        msg: "{{ calico_start.stdout_lines }}"

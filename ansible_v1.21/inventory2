@@ -1,0 +1,8 @@
+# worker node (Ubuntu 20.04)
+[workers_ubuntu]
+192.168.119.112
+
+
+[workers_ubuntu:vars]
+ansible_user=administrator 
+ansible_password=@ut0Lab95619

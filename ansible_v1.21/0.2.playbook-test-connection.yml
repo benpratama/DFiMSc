@@ -1,0 +1,10 @@
+---
+- name: Test connection for Ubuntu machines
+  hosts: workers_ubuntu
+  become: true
+  vars_files:
+    - secret.yml
+
+  tasks:
+    - name: Test Connection
+      ping:

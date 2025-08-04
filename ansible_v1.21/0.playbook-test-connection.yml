@@ -1,0 +1,29 @@
+---
+- name: Test connection for Ubuntu machines
+  hosts: control_plane
+  become: true
+  vars_files:
+    - secret.yml
+
+  tasks:
+    - name: Test Connection
+      ping:
+
+# - name: Test connection for Ubuntu machines
+#   hosts: workers_ubuntu
+#   become: true
+#   vars_files:
+#     - secret.yml
+
+#   tasks:
+#     - name: Test Connection
+#       ping:
+
+# - name: Test connection for Windows Server machines
+#   hosts: workers_win
+#   vars_files:
+#     - secret.yml
+
+#   tasks:    
+#     - name: Test Connection
+#       win_ping:

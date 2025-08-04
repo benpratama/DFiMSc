@@ -1,0 +1,30 @@
+user: administrator
+
+required_packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg-agent
+  - software-properties-common
+  - gpg
+
+kubernetes_engines:
+  - kubelet 
+  - kubeadm 
+  - kubectl
+
+ubt_continerd_version: 1.7.18
+
+ubt_runc_version: 1.1.13
+
+ubt_CNI_version: 1.5.0
+
+ubt_k8s_version: 1.28
+
+win_continerd_version: 1.7.18
+
+win_k8s_install_dir: C:\k
+
+win_calico_version: v3.28.0
+
+win_k8s_version: 1.28.15

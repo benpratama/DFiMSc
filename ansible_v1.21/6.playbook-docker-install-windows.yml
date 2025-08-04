@@ -1,0 +1,70 @@
+---
+- name: Install Docker in Windows Server 2019
+  hosts: workers_win
+  vars_files:
+    - variables.yml
+
+  tasks:      
+    # - name: Download and install chocolatey
+    #   win_shell: Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+    - name: Install nssm (non-sucking service manager) via chocolatey
+      win_chocolatey:
+        name: nssm
+        state: present
+    
+    - name: Set TLS 1.2 as default security protocol
+      win_shell: '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12'
+
+    # - name: Download and install NuGet package provider
+    #   win_shell: Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+
+    # - name: Install Docker-Microsoft PackageManagement Provider from PowerShell Gallery
+    #   win_shell: Install-Module -Name DockerMsftProvider -Repository PSGallery -Force
+
+    # - name: Install Docker Engine and trust the package source      
+    #   win_shell: Install-Package -Name docker -ProviderName DockerMsftProvider -Force
+
+    - name: Download Docker installation script
+      win_shell: Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/microsoft/Windows-Containers/Main/helpful_tools/Install-DockerCE/install-docker-ce.ps1" -o install-docker-ce.ps1
+    
+    - name: Run a powershell script to install Docker
+      win_shell: .\install-docker-ce.ps1 -DockerVersion {{ docker_version_windows }} -Force
+
+    # - name: Restart windows server
+    #   win_shell: Restart-Computer -Force
+    #   when: ansible_reboot_pending | bool
+    
+    - name: Wait for the machine to reboot
+      wait_for_connection:
+        delay: 10
+        timeout: 600
+
+    - name: Download Docker installation script
+      win_shell: Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/microsoft/Windows-Containers/Main/helpful_tools/Install-DockerCE/install-docker-ce.ps1" -o install-docker-ce.ps1
+        
+    - name: Run a powershell script to install Docker
+      win_shell: .\install-docker-ce.ps1 -DockerVersion {{ docker_version_windows }}
+    
+    # - name: Enable Docker Service
+    #   win_service:
+    #     name: docker
+    #     start_mode: auto
+    #     state: started
+
+    - name: Restart windows server
+      win_shell: Restart-Computer -Force
+      when: ansible_reboot_pending | bool
+    
+    - name: Wait for the machine to reboot
+      wait_for_connection:
+        delay: 10
+        timeout: 600
+
+    - name: Check Docker version
+      win_shell: docker version
+      register: docker_version
+
+    - name: Print Docker version
+      debug:
+        msg: "{{ docker_version.stdout_lines }}"

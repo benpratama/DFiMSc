@@ -1,0 +1,10 @@
+---
+- name: Test connection for Ubuntu machines
+  hosts: control_plane
+  become: true
+  vars_files:
+    - secret.yml
+
+  tasks:
+    - name: Test Connection
+      ping:

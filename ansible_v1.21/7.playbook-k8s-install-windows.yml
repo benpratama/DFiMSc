@@ -1,0 +1,92 @@
+---
+- name: Install K8s in Windows Server 2019
+  hosts: workers_win
+  vars_files:
+    - variables.yml
+
+  tasks:      
+    - name: Download Kubernetes pause image for Windows
+      win_shell: docker pull mcr.microsoft.com/oss/kubernetes/pause:1.4.1
+
+    - name: Download Flannel windows image
+      win_shell: docker pull sigwindowstools/flannel:v0.13.0-nanoserver
+      register: result
+      retries: 3
+      delay: 10
+      until: result.rc == 0
+
+    - name: Download Kube proxy windows image 
+      win_shell: docker pull sigwindowstools/kube-proxy:v1.21.14-nanoserver
+
+    - name: Disable firewall
+      win_shell: Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+
+    - name: Prepare installation directory
+      win_file:
+        path: "{{ k8s_install_dir_windows }}"
+        state: directory
+
+    - name: Download K8s installation script
+      win_shell: Invoke-WebRequest -UseBasicParsing "https://github.com/kubernetes-sigs/sig-windows-tools/releases/download/v0.1.5/PrepareNode.ps1" -o PrepareNode.ps1
+    
+    - name: Run a powershell script to install Kubernetes
+      win_shell: .\PrepareNode.ps1 -KubernetesVersion v{{ k8s_version_windows }}
+
+    - name: Install kubectl
+      win_shell: Invoke-WebRequest -UseBasicParsing "https://storage.googleapis.com/kubernetes-release/release/v{{ k8s_version_windows }}/bin/windows/amd64/kubectl.exe" -o "{{ k8s_install_dir_windows }}/kubectl.exe"
+
+    - name: Add kubectl to path
+      win_path:
+        elements:
+          - "{{ k8s_install_dir_windows }}"
+        state: present
+        scope: machine
+
+    - name: Add KUBECONFIG environment variable referring to K8s config file
+      win_environment:
+        name: KUBECONFIG
+        value: "{{ k8s_install_dir_windows }}/config"
+        state: present
+        level: machine
+
+    - name: Copy K8s config file from Ansible controller to windows host
+      win_copy:
+        src: "/home/{{ user }}/.kube/config"
+        dest: "{{ k8s_install_dir_windows }}\\config"
+        remote_src: no
+        force: yes
+
+    - name: Run kubectl cluster-info to test kubectl functionality
+      win_shell: kubectl cluster-info
+      register: kubectl_cluster_info
+
+    - name: Print kubectl cluster-info output
+      debug:
+        msg: "{{ kubectl_cluster_info.stdout_lines }}"
+    
+    - name: Copy K8s join command from Ansible controller to windows host
+      win_copy:
+        src: "/home/{{ user }}/join-command-windows.ps1"
+        dest: "{{ k8s_install_dir_windows }}\\join-command-windows.ps1"
+        remote_src: no
+        force: yes
+
+    - name: Run K8s join command
+      win_shell: "{{ k8s_install_dir_windows }}\\join-command-windows.ps1"
+      register: k8s_join_output
+
+    - name: Print K8s join output
+      debug:
+        msg: "{{ k8s_join_output.stdout_lines }}"
+
+    # - name: Wait for the join process to finish before proceeding
+    #   wait_for:
+    #     timeout: 30
+
+    - name: Check K8s node status after join
+      win_shell: kubectl get nodes
+      register: k8s_node_status
+    
+    - name: Print K8s node status after join
+      debug:
+        msg: "{{ k8s_node_status.stdout_lines }}"

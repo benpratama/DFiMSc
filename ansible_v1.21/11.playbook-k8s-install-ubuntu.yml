@@ -1,0 +1,159 @@
+# ============
+# 1. PRE-INSTALLATION
+# 2. INSTALL
+# 3. CHECK
+# ============
+---
+- name: Install Kubernetes in Ubuntu
+  hosts: control_plane
+  become: true
+  vars_files:
+    - secret.yml
+    - variables_containerd.yml
+
+  tasks:
+# 1. PRE-INSTALLATION
+    - name: Disable swap
+      command: swapoff -a
+    
+    - name: Disable swap in /etc/fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^(.+?\s+swap\s+sw\s+.+?)$'
+        replace: '#\1'
+    
+    - name: Modify the nameserver in resolv.conf
+      replace:
+        path: /etc/resolv.conf
+        regexp: '^(.+?\s+nameserver\s+.+?)$'
+        replace: 'nameserver 8.8.8.8 8.8.4.4'
+
+    - name: Create modules-load k8s.conf
+      ansible.builtin.file:
+        path: /etc/modules-load.d/k8s.conf
+        state: touch
+        mode: 0644
+    
+    - name: Empty file content /etc/modules-load.d/k8s.conf
+      copy:
+        content: ""
+        dest: /etc/modules-load.d/k8s.conf
+
+    - name: Ensure modules-load
+      lineinfile:
+        path: /etc/modules-load.d/k8s.conf
+        state: present
+        create: yes
+        line: |
+          overlay
+          br_netfilter
+
+    - name: Make sure that overlay module is loaded
+      modprobe:
+        name: overlay
+
+    - name: Make sure that br_netfilter module is loaded
+      modprobe:
+        name: br_netfilter
+    
+    - name: Create iptables rule file for K8s
+      file:
+        path: /etc/sysctl.d/k8s.conf
+        state: touch
+        mode: 0644
+
+    - name: Empty file content /etc/sysctl.d/k8s.conf
+      copy:
+        content: ""
+        dest: /etc/sysctl.d/k8s.conf
+
+    - name: Ensure iptables tooling does not use the nftables backend
+      lineinfile:
+        path: /etc/sysctl.d/k8s.conf
+        state: present
+        create: yes
+        line: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+    
+    - name: Apply sysctl params
+      command: sysctl --system
+
+    - name: br_netfilter check
+      ansible.builtin.shell: "lsmod | grep br_netfilter"
+      register: br_netfilter_result
+
+    - name: Print br_netfilter
+      debug:
+        msg: "{{ br_netfilter_result.stdout }}"
+    
+    - name: overlay check
+      ansible.builtin.shell: "lsmod | grep overlay"
+      register: overlay_result
+
+    - name: Print overlay
+      debug:
+        msg: "{{ overlay_result.stdout }}"
+    
+    - name: Verify iptables set to 1
+      ansible.builtin.shell: "sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward"
+      register: iptables_result
+
+    - name: Print iptables
+      debug:
+        msg: "{{ iptables_result.stdout }}"
+
+# 2. INSTALL
+    - name: Create directory /etc/apt/keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+    
+    - name: Download and Convert Kubernetes APT key
+      ansible.builtin.shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ ubt_k8s_version }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+    
+    - name: Add Kubernetes repository to APT package manager system
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ ubt_k8s_version }}/deb/ /
+        mode: '0644'
+    
+    - name: Install Kubernetes packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+        allow_downgrades: true
+      loop: "{{ kubernetes_engines }}"
+
+    - name: Hold Kubernetes packages version
+      command: apt-mark hold kubelet kubeadm kubectl
+
+# 3. CHECK
+# # ========================================
+
+    - name: Check kubeadm version
+      command: kubeadm version
+      register: kubeadm_version
+    
+    - name: Print kubeadm version
+      debug:
+        msg: "{{ kubeadm_version.stdout }}"
+
+    - name: Check kubelet version
+      command: kubelet --version
+      register: kubelet_version
+
+    - name: Print kubelet version
+      debug:
+        msg: "{{ kubelet_version.stdout }}"
+    
+    - name: Check kubectl version
+      command: kubectl version --client
+      register: kubectl_version 
+    
+    - name: Print kubectl version
+      debug:
+        msg: "{{ kubectl_version.stdout }}"

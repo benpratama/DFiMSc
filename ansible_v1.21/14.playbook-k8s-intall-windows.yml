@@ -1,0 +1,75 @@
+---
+- name: Install K8s in Windows Server 2019
+  hosts: workers_win
+  vars_files:
+    - variables_containerd.yml
+
+  tasks:
+
+    - name: Prepare installation directory
+      win_file:
+        path: "{{ win_k8s_install_dir }}"
+        state: directory
+    
+    - name: Copy K8s config file from Ansible controller to windows host
+      win_copy:
+        src: "/home/{{ user }}/.kube/config"
+        dest: "{{ win_k8s_install_dir }}\\config"
+        remote_src: no
+        force: yes
+    
+    - name: Download Calico installation script
+      win_shell: Invoke-WebRequest -Uri https://github.com/projectcalico/calico/releases/download/v3.28.0/install-calico-windows.ps1 -OutFile c:\k\install-calico-windows.ps1
+
+    - name: Run Calico installation packages
+      win_shell: c:\k\install-calico-windows.ps1 -ReleaseBaseURL "https://github.com/projectcalico/calico/releases/download/{{ win_calico_version }}" -ReleaseFile "calico-windows-{{ win_calico_version }}.zip" -KubeVersion {{ win_k8s_version }} -DownloadOnly "yes" -ServiceCidr "10.96.0.0/16" -DNSServerIPs "127.0.0.1"
+      register: calico
+    
+    - name: Wait until containerd is finished
+      win_wait_for:
+        timeout: 120
+
+    - name: calico and k8s result
+      debug:
+        msg: "{{ calico.stdout_lines }}"
+    
+    - name: Set CNI_BIN_DIR environment variable
+      win_environment:
+        name: CNI_BIN_DIR
+        value: "C:\\program files\\containerd\\cni\\bin"
+        level: machine
+    
+    - name: Set CNI_CONF_DIR environment variable
+      win_environment:
+        name: CNI_CONF_DIR
+        value: "C:\\program files\\containerd\\cni\\conf"
+        level: machine
+
+    - name: Run install-calico.ps1
+      win_shell: "C:\\calicowindows\\install-calico.ps1"
+      register: calico
+
+    - name: Wait until containerd is finished
+      win_wait_for:
+        timeout: 120
+
+    - name: calico and k8s result
+      debug:
+        msg: "{{ calico.stdout_lines }}"
+
+    - name: Wait for the machine to reconnect
+      wait_for_connection:
+        delay: 10
+        timeout: 600
+
+    - name: Run start-calico.ps1
+      win_shell: "c:\\calicowindows\\start-calico.ps1"
+      register: calico_start
+    
+    - name: Wait until containerd is finished
+      win_wait_for:
+        timeout: 60
+
+    - name: calico and k8s result
+      debug:
+        msg: "{{ calico_start.stdout_lines }}"
